@@ -71,7 +71,7 @@ function isAnniversary(day){return day && state.anniversary===`${currentMonth.va
 
 <template>
  <div class="app-shell">
-  <header class="site-header"><a href="#" class="brand" @click.prevent="step=0">余白<span>PHOTO ATELIER</span></a><div class="header-center">大切な瞬間に、あなたらしい余白を。</div><button class="save-button" @click="persist">↓ 編集内容を保存</button></header>
+  <header class="site-header"><a href="#" class="brand" @click.prevent="step=0">余白<span>PHOTO ATELIER</span></a><div class="header-center">大切な瞬間に、あなたらしい余白を。</div><div class="header-actions"><a class="demo-link" :href="`${baseURL}maison-ardea.html`">360°トートの試作 ↗</a><button class="save-button" @click="persist">↓ 編集内容を保存</button></div></header>
   <nav class="steps" aria-label="制作のステップ"><button v-for="(label,i) in steps" :key="label" :class="{active:step===i,done:step>i}" :aria-current="step===i?'step':undefined" @click="step=i"><span>{{step>i?'✓':String(i+1).padStart(2,'0')}}</span>{{label}}</button></nav>
   <main class="workspace">
    <section class="preview-zone" aria-label="商品プレビュー">

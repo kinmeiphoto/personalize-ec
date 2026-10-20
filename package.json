@@ -6,10 +6,17 @@
     "dev": "nuxt dev --host 0.0.0.0",
     "build": "nuxt build",
     "preview": "node .output/server/index.mjs",
-    "generate": "nuxt generate"
+    "generate": "nuxt generate",
+    "build:ardea": "node tools/ardea/build.mjs",
+    "test:ardea": "node --test tests/ardea.test.mjs"
   },
   "dependencies": {
     "nuxt": "4.6.2",
     "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "playwright": "^1.64.1",
+    "three": "^0.186.1"
   }
 }
