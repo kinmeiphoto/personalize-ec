@@ -1,0 +1,2 @@
+<script setup>defineProps(['model'])</script>
+<template><label class="setting-field">開始年月<input v-model="model.start" type="month" min="2000-01" max="2100-12" required @change="model.start ||= '2026-10'" /></label><label class="checkbox"><input v-model="model.monday" type="checkbox" />月曜始まり</label><label class="setting-field">記念日<input v-model="model.anniversary" type="date" /></label><label class="setting-field">記念日の名前<input v-model="model.anniversaryLabel" placeholder="誕生日、結婚記念日など" maxlength="40" /></label><p class="help">開始月から12か月。プレビュー下の矢印で月ごとの写真を編集できます。</p></template>
