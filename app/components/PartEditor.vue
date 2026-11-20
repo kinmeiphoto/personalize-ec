@@ -1,4 +1,5 @@
 <script setup>
+const assetUrl = useAssetUrl()
 import { coverColors, paperColors, frameColors } from '~/composables/useAlbum'
 const props=defineProps({ design:Object, section:String, slotKey:{type:String,default:'Cover'}, busy:Boolean })
 const emit=defineEmits(['upload','reset-photo'])
@@ -26,7 +27,7 @@ const key=computed(()=>props.section==='paper'?'paper':'frame')
    <div class="part-palette compact" role="group" :aria-label="section==='paper'?'本文紙カラーの選択':'写真枠カラーの選択'"><button v-for="c in options" :key="c.hex" :aria-label="(section==='paper'?'本文紙':'写真枠')+'を'+c.name+'に変更'" :aria-pressed="design[key]===c.hex" :class="{active:design[key]===c.hex}" @click="design[key]=c.hex"><i :style="{background:c.hex}"><UiIcon v-if="design[key]===c.hex" name="check" :size="16" :style="{color:c.hex==='#fafafa'||c.name==='クリーム'?'#222':'#fff'}"/></i><span>{{c.name}}</span></button></div>
   </template>
   <template v-else-if="section==='photo'">
-   <div class="part-photo-preview"><img :src="photo.src" alt="選択中の写真" :style="{transform:'scale('+photo.zoom+')',transformOrigin:((photo.x+1)*50)+'% '+((photo.y+1)*50)+'%'}"/></div>
+   <div class="part-photo-preview"><img :src="assetUrl(photo.src)" alt="選択中の写真" :style="{transform:'scale('+photo.zoom+')',transformOrigin:((photo.x+1)*50)+'% '+((photo.y+1)*50)+'%'}"/></div>
    <label class="upload-button part-upload"><UiIcon name="upload" :size="18"/>{{busy?'写真を処理しています…':'写真を差し替える'}}<input type="file" accept="image/jpeg,image/png,image/webp" :disabled="busy" :aria-label="'ポップアップで'+slotKey+'の写真を選択'" @change="emit('upload',$event)"/></label>
    <div class="part-crop"><label>拡大<span>{{photo.zoom.toFixed(2)}}×</span><input v-model.number="photo.zoom" aria-label="ポップアップの写真の拡大率" type="range" min="1" max="3" step="0.01"/></label><label>左右<input v-model.number="photo.x" aria-label="ポップアップの写真の左右位置" type="range" min="-1" max="1" step="0.01"/></label><label>上下<input v-model.number="photo.y" aria-label="ポップアップの写真の上下位置" type="range" min="-1" max="1" step="0.01"/></label></div>
    <div class="part-photo-note"><span>JPG・PNG・WebP / 最大10MB</span><button class="text-button" @click="emit('reset-photo')">元に戻す</button></div><p class="part-privacy">写真は端末内で処理されます。</p>

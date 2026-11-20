@@ -1,12 +1,16 @@
 <script setup>
 import * as THREE from 'three'
+import { intersectAlbum } from '../utils/albumHit.js'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 
 const props = defineProps({ design: Object, view: String, spinning: Boolean, activeTarget: String, hoverEnabled: Boolean })
 const emit = defineEmits(['ready', 'error', 'edit'])
+const assetUrl = useAssetUrl()
 const host = ref(null)
+const albumHovered = ref(false)
+let lastPointer = null, overHotspot = false
 const hotspots = ref([]), dragging = ref(false)
 const anchors = {}, hitTester = new THREE.Raycaster()
 let anchorsDirty = true
@@ -14,7 +18,7 @@ let renderer, scene, camera, controls, observer, raf, pmrem, environment, namepl
 const groups = {}, textureCache = new Map(), textureRequests = new Map()
 const textureLoader = new THREE.TextureLoader()
 let disposed = false
-let hoverTimer, hoverTarget='', hoverSuppressedUntil=0, lastPointerCheck=0, lastFitDistance=0
+let hoverTimer, hoverTarget='', hoverSuppressedUntil=0, lastFitDistance=0
 
 function clearQueuedHover(){clearTimeout(hoverTimer);hoverTarget=''}
 function suspendHover(duration=1000){clearQueuedHover();hoverSuppressedUntil=Date.now()+duration}
@@ -26,23 +30,28 @@ function queueHover(target){
     if(!disposed&&props.hoverEnabled&&!dragging.value&&Date.now()>=hoverSuppressedUntil)emit('edit',{target,trigger:'hover'})
   },450)
 }
-function hoverHotspot(event,hotspot){if(event.pointerType==='mouse'||event.pointerType==='pen')queueHover(hotspot.target)}
-function handlePointerMove(event){
+function leaveAlbum(){
+  lastPointer=null;overHotspot=false;albumHovered.value=false;clearQueuedHover()
+}
+function hoverHotspot(event,hotspot){
   if(event.pointerType!=='mouse'&&event.pointerType!=='pen')return
-  if(!props.hoverEnabled||dragging.value||!camera||Date.now()<hoverSuppressedUntil){clearQueuedHover();return}
-  if(Date.now()-lastPointerCheck<80)return
-  lastPointerCheck=Date.now()
+  overHotspot=true;albumHovered.value=true;queueHover(hotspot.target)
+}
+function leaveHotspot(event){overHotspot=false;clearQueuedHover();handlePointerMove(event)}
+function checkAlbumHover(){
+  if(overHotspot)return
+  if(!lastPointer||dragging.value||!camera||!renderer){albumHovered.value=false;clearQueuedHover();return}
   const rect=renderer.domElement.getBoundingClientRect()
-  const pointer=new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1,-(event.clientY-rect.top)/rect.height*2+1)
-  const group=groups[props.view]
-  if(!group)return
-  group.updateMatrixWorld(true)
-  hitTester.setFromCamera(pointer,camera)
-  const objects=[group,...(nameplate?[nameplate]:[])]
-  const hit=hitTester.intersectObjects(objects,true)[0]
+  const hit=intersectAlbum({point:lastPointer,rect,camera,group:groups[props.view],nameplate,raycaster:hitTester})
+  albumHovered.value=!!hit
   const name=hit?.object.material?.name||''
   const target=hit?.object.userData.editTarget || (name.startsWith('PHOTO_')?'photo-'+name.slice(6):({COLOR_Cover:'cover',COLOR_Paper:'paper',COLOR_Frame:'frame',DETAIL_PageEdges:'paper',DETAIL_Hinge:'cover'}[name]||''))
   queueHover(target)
+}
+function handlePointerMove(event){
+  if(event.pointerType!=='mouse'&&event.pointerType!=='pen'){leaveAlbum();return}
+  lastPointer={x:event.clientX,y:event.clientY}
+  checkAlbumHover()
 }
 
 function updateCrop(map, slot) {
@@ -77,7 +86,7 @@ function applyDesign() {
           mat.map = textureCache.get(cacheKey); updateCrop(mat.map,slot)
           mat.color.set('#ffffff'); mat.roughness=.58; mat.metalness=0; mat.needsUpdate=true
         } else if (!textureRequests.has(cacheKey)) {
-          const req = textureLoader.loadAsync(slot.src).then(map => {
+          const req = textureLoader.loadAsync(assetUrl(slot.src)).then(map => {
             if (disposed) { map.dispose(); return }
             map.colorSpace=THREE.SRGBColorSpace; map.flipY=false
             map.anisotropy=Math.min(renderer.capabilities.getMaxAnisotropy(),8)
@@ -214,10 +223,8 @@ onMounted(async () => {
     controls.enablePan=false; controls.minDistance=3.2; controls.maxDistance=30
     controls.maxPolarAngle=Math.PI*.49; controls.minPolarAngle=.12; controls.autoRotateSpeed=.7
     controls.addEventListener('change',()=>{ anchorsDirty=true })
-    controls.addEventListener('start',()=>{ dragging.value=true;clearQueuedHover() })
+    controls.addEventListener('start',()=>{ dragging.value=true;albumHovered.value=false;clearQueuedHover() })
     controls.addEventListener('end',()=>{ dragging.value=false; anchorsDirty=true })
-    renderer.domElement.addEventListener('pointermove',handlePointerMove)
-    renderer.domElement.addEventListener('pointerleave',clearQueuedHover)
     renderer.domElement.addEventListener('pointerdown',clearQueuedHover)
     pmrem=new THREE.PMREMGenerator(renderer)
     const room=new RoomEnvironment(); environment=pmrem.fromScene(room,.04); room.dispose()
@@ -231,7 +238,7 @@ onMounted(async () => {
     floor.rotation.x=-Math.PI/2; floor.position.y=-.325; floor.receiveShadow=true; scene.add(floor)
     const loader=new GLTFLoader()
     await Promise.all(['closed','open'].map(async kind => {
-      const gltf=await loader.loadAsync('/models/album-'+kind+'.glb')
+      const gltf=await loader.loadAsync(assetUrl('/models/album-'+kind+'.glb'))
       if (disposed) return
       const model=gltf.scene; model.scale.setScalar(1); model.updateMatrixWorld(true)
       const box=new THREE.Box3().setFromObject(model),center=box.getCenter(new THREE.Vector3())
@@ -266,24 +273,22 @@ onMounted(async () => {
       raf=requestAnimationFrame(loop)
       if(document.hidden || time-last<32) return
       last=time; controls.update(); renderer.render(scene,camera)
-      if(anchorsDirty){updateHotspots();anchorsDirty=false}
+      if(anchorsDirty){updateHotspots();checkAlbumHover();anchorsDirty=false}
     }
     raf=requestAnimationFrame(loop); emit('ready')
   } catch (e) { console.error(e); emit('error','3Dを表示できませんでした。WebGLに対応したブラウザーでお試しください。') }
 })
 onBeforeUnmount(() => {
   disposed=true; clearQueuedHover();cancelAnimationFrame(raf); observer?.disconnect(); controls?.dispose()
-  renderer?.domElement.removeEventListener('pointermove',handlePointerMove)
-  renderer?.domElement.removeEventListener('pointerleave',clearQueuedHover)
   renderer?.domElement.removeEventListener('pointerdown',clearQueuedHover)
   scene?.traverse(o => { if (o.isMesh) { o.geometry.dispose(); o.material?.dispose() } })
   textureCache.forEach(t=>t.dispose()); environment?.dispose(); pmrem?.dispose(); renderer?.dispose()
 })
 </script>
 <template>
- <div ref="host" class="three-stage" :class="{'has-editor':activeTarget,'is-dragging':dragging}">
-  <div class="model-hotspots" aria-label="3Dモデルの変更箇所">
-   <button v-for="hotspot in hotspots" :key="hotspot.target" class="model-hotspot" :class="{active:activeTarget===hotspot.target}" :data-part="hotspot.target" :style="{left:hotspot.x+'px',top:hotspot.y+'px'}" :aria-label="hotspot.label" :aria-expanded="activeTarget===hotspot.target" aria-haspopup="dialog" @pointerenter="hoverHotspot($event,hotspot)" @pointerleave="clearQueuedHover" @pointerdown.stop @click.stop="editPart(hotspot)">
+ <div ref="host" class="three-stage" :class="{'has-editor':activeTarget,'is-dragging':dragging,'is-album-hovered':albumHovered}" @pointermove="handlePointerMove" @pointerleave="leaveAlbum">
+  <div class="model-hotspots" :aria-hidden="!albumHovered || dragging" aria-label="3Dモデルの変更箇所">
+   <button v-for="hotspot in hotspots" :key="hotspot.target" class="model-hotspot" :tabindex="albumHovered && !dragging ? 0 : -1" :class="{active:activeTarget===hotspot.target}" :data-part="hotspot.target" :style="{left:hotspot.x+'px',top:hotspot.y+'px'}" :aria-label="hotspot.label" :aria-expanded="activeTarget===hotspot.target" aria-haspopup="dialog" @pointerenter="hoverHotspot($event,hotspot)" @pointerleave="leaveHotspot($event)" @pointerdown.stop @click.stop="editPart(hotspot)">
     <UiIcon :name="hotspot.icon" :size="17"/><span>{{hotspot.label}}</span>
    </button>
   </div>

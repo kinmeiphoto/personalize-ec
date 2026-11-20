@@ -114,3 +114,18 @@ Use case: photorealistic-natural. Asset type: sample detail photograph inside a 
 6件の状態テスト：`node --test tests/selection-editor.test.mjs`
 
 ブラウザー操作ツールが利用できないため、新しい配置の目視確認とホバーの実ブラウザー操作確認は未実施です。写真アップロードの自動検証に関する制約も前述のとおりです。
+
+## GitHub Pages
+
+公開先: https://kinmeiphoto.github.io/personalize-ec/
+
+`main`への更新で `.github/workflows/deploy-pages.yml` がテスト、静的ビルド、公開を行います。GitHubのSettings → Pagesの公開元はGitHub Actionsを使用します。
+
+ローカルで公開用ビルドを確認する場合:
+
+```sh
+NUXT_APP_BASE_URL=/personalize-ec/ npm run build
+node --test tests/*.test.mjs
+```
+
+ロゴ、写真、GLB、PWAは上記サブパスに対応しています。通常の `npm run dev` は `/` で動作します。編集アイコンは3Dアルバムの表面をマウスで指している間だけ表示され、背景や画面の外へ移ると隠れます。タッチ操作やキーボード操作では下部の項目ボタンから編集できます。

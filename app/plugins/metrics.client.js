@@ -3,7 +3,7 @@ export default defineNuxtPlugin(() => {
   const config = useRuntimeConfig()
   if (config.public.boomerangBeaconUrl) {
     const script = document.createElement('script')
-    script.src = '/vendor/boomerang.js'
+    script.src = useAssetUrl()('/vendor/boomerang.js')
     script.onload = () => window.BOOMR?.init({ beacon_url: config.public.boomerangBeaconUrl, autorun: true, RT: { enabled: true } })
     document.head.appendChild(script)
   }
