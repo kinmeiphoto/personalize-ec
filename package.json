@@ -1,0 +1,23 @@
+{
+  "name": "memoria-album-atelier",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --host 127.0.0.1 --port 3100",
+    "build": "nuxt generate",
+    "preview": "nuxt preview --host 127.0.0.1 --port 3100",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "nuxt": "^4.6.4",
+    "vue": "^3.5.0",
+    "three": "^0.187.0",
+    "swiper": "^14.4.0",
+    "core-js": "3.32.2",
+    "@vite-pwa/nuxt": "^2.0.2",
+    "boomerangjs": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0"
+  }
+}
