@@ -124,7 +124,7 @@ useHead({script:[{type:'application/ld+json',innerHTML:JSON.stringify({'@context
  <div class="selection-app">
   <NuxtPwaManifest />
   <a class="skip-link" href="#studio">アルバムの選択画面へ</a>
-  <main id="top" class="selection-workspace">
+  <main id="top" class="selection-workspace" :class="{'panel-open':!!editTarget}">
    <div id="studio" class="selection-main" :inert="isCompact && !!editTarget">
     <header class="selection-header">
      <div class="selection-product"><h1>ウェディングアルバム</h1><p>{{money(price)}}<span>参考価格・税込</span></p><small>ふたりで仕立てる、大切な一冊。</small></div>
