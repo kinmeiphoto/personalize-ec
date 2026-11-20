@@ -10,7 +10,7 @@ const { design, favorite, cart, price, colorName, money, track } = useAlbum()
 const viewer=ref(null), view=ref('closed'), ready=ref(false), spinning=ref(false)
 const selectedPhoto=ref('Cover'), toast=ref(''), drawer=ref(''), dialog=ref(''), chatOpen=ref(false), chatInput=ref(''), busyUpload=ref(false), modelError=ref('')
 const savedAt=ref(''), savedSnapshot=ref(''), giftWrap=ref(true), consultationSaved=ref(false)
-const {editTarget,contextEditor,isCompact,editorItems,editSection,editSlot,editTitle,openPartEditor,selectEditor,closePartEditor,dismissPartEditor,syncViewport}=useSelectionEditor({view,spinning,selectedPhoto,viewer,track})
+const {editTarget,contextEditor,isCompact,editorItems,editSection,editSlot,editTitle,openPartEditor,selectEditor,closePartEditor,dismissPartEditor,syncViewport}=useSelectionEditor({view,spinning,selectedPhoto,track})
 async function confirmDesign(){
  if(confirming.value||!ready.value)return
  confirming.value=true;closePartEditor(false)
@@ -132,13 +132,12 @@ useHead({script:[{type:'application/ld+json',innerHTML:JSON.stringify({'@context
      <nav class="selection-header-actions" aria-label="デザインの保存とご相談"><button class="selection-save" @click="saveDesign"><UiIcon name="save" :size="18"/><span>保存</span></button><button class="icon-button" :aria-label="favorite?'お気に入りから外す':'お気に入りに追加'" :aria-pressed="favorite" @click="toggleFavorite"><UiIcon name="heart" :class="{filled:favorite}"/></button><button class="icon-button bag-button" aria-label="ご相談リストを開く" @click="drawer='cart'"><UiIcon name="bag"/><span v-if="cart.length" class="cart-count">{{cart.length}}</span></button></nav>
     </header>
     <div class="selection-scene">
-     <ClientOnly><AlbumViewer ref="viewer" :design="design" :view="view" :spinning="spinning" :active-target="editTarget" :hover-enabled="!editTarget && !drawer && !dialog && !chatOpen" @edit="openPartEditor" @ready="ready=true" @error="modelError=$event"/></ClientOnly>
+     <ClientOnly><AlbumViewer ref="viewer" :design="design" :view="view" :spinning="spinning" :active-target="editTarget" @edit="openPartEditor" @ready="ready=true" @error="modelError=$event"/></ClientOnly>
      <div class="selection-vignette" aria-hidden="true"/>
      <div v-if="!ready&&!modelError" class="selection-loading"><span class="loader"/><p>アルバムを準備しています</p></div>
      <div v-if="modelError" class="selection-error"><img :src="assetUrl('/images/album-closed.webp')" alt="ウェディングアルバムの参考画像"/><p>{{modelError}}</p></div>
     </div>
     <div class="selection-view-toggle" role="group" aria-label="アルバムの表示状態"><button :class="{active:view==='closed'}" :aria-pressed="view==='closed'" @click="changeView('closed')">表紙</button><button :class="{active:view==='open'}" :aria-pressed="view==='open'" @click="changeView('open')">見開き</button></div>
-    <p class="selection-help"><span class="stage-hint-pointer">マウスを重ねて編集 · ドラッグで回転</span><span class="stage-hint-touch">下の項目から編集 · 指で回転</span></p>
     <div class="selection-bottom">
      <nav class="editor-dock" aria-label="変更する項目">
       <Swiper :modules="[A11y,Keyboard,FreeMode]" :slides-per-view="'auto'" :space-between="10" :center-insufficient-slides="true" :free-mode="{enabled:true}" :keyboard="{enabled:true,onlyInViewport:true}">

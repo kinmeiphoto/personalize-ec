@@ -5,10 +5,9 @@ import { useSelectionEditor } from '../app/composables/useSelectionEditor.js'
 
 function setup(){
   const view=ref('closed'),spinning=ref(true),selectedPhoto=ref('Cover')
-  const pauses=[],events=[]
-  const viewer=ref({suspendHover:duration=>pauses.push(duration)})
-  const editor=useSelectionEditor({view,spinning,selectedPhoto,viewer,track:(...event)=>events.push(event)})
-  return {...editor,view,spinning,selectedPhoto,pauses,events}
+  const events=[]
+  const editor=useSelectionEditor({view,spinning,selectedPhoto,track:(...event)=>events.push(event)})
+  return {...editor,view,spinning,selectedPhoto,events}
 }
 test('first view has no open editing panel',()=>{
   const s=setup()
@@ -16,14 +15,22 @@ test('first view has no open editing panel',()=>{
   assert.equal(s.editorItems.length,6)
   assert.equal(s.view.value,'closed')
 })
-test('hover opens a part without changing the album view or interrupting an open menu',()=>{
+test('hover cannot open a panel or change the current selection',()=>{
   const s=setup()
   s.openPartEditor({target:'paper',trigger:'hover'})
-  assert.equal(s.editTarget.value,'paper')
+  assert.equal(s.editTarget.value,'')
   assert.equal(s.view.value,'closed')
+  assert.equal(s.spinning.value,true)
+  assert.equal(s.events.length,0)
+  s.openPartEditor({target:'photo-Left',trigger:'click'})
+  assert.equal(s.editTarget.value,'photo-Left')
   assert.equal(s.spinning.value,false)
   s.openPartEditor({target:'cover',trigger:'hover'})
-  assert.equal(s.editTarget.value,'paper')
+  assert.equal(s.editTarget.value,'photo-Left')
+  assert.equal(s.events.length,1)
+  s.closePartEditor(false)
+  s.openPartEditor({target:'cover',trigger:'hover'})
+  assert.equal(s.editTarget.value,'')
 })
 test('bottom choices switch to the appropriate view, and close without reopening',()=>{
   const s=setup()
@@ -32,7 +39,6 @@ test('bottom choices switch to the appropriate view, and close without reopening
   assert.equal(s.editTarget.value,'paper')
   s.closePartEditor(false)
   assert.equal(s.editTarget.value,'')
-  assert.equal(s.pauses.at(-1),1000)
   s.selectEditor('initials')
   assert.equal(s.editTarget.value,'initials')
   assert.equal(s.view.value,'closed')
@@ -54,7 +60,7 @@ test('left and right photo menus select their individual slots',()=>{
 })
 test('external pointer clicks close a panel; clicks inside controls keep it open',()=>{
   const s=setup()
-  s.openPartEditor({target:'size',trigger:'hover'})
+  s.openPartEditor({target:'size',trigger:'click'})
   s.dismissPartEditor({target:{closest:()=>({})}})
   assert.equal(s.editTarget.value,'size')
   s.dismissPartEditor({target:{closest:()=>null}})
@@ -62,7 +68,7 @@ test('external pointer clicks close a panel; clicks inside controls keep it open
 })
 test('unrecognized parts cannot open a drawer',()=>{
   const s=setup()
-  s.openPartEditor({target:'unknown',trigger:'hover'})
+  s.openPartEditor({target:'unknown',trigger:'click'})
   assert.equal(s.editTarget.value,'')
 })
 // The browser handles focus and layout; this suite tests selection state only.

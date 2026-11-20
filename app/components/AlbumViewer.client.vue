@@ -5,7 +5,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js'
 
-const props = defineProps({ design: Object, view: String, spinning: Boolean, activeTarget: String, hoverEnabled: Boolean })
+const props = defineProps({ design: Object, view: String, spinning: Boolean, activeTarget: String })
 const emit = defineEmits(['ready', 'error', 'edit'])
 const assetUrl = useAssetUrl()
 const host = ref(null)
@@ -18,35 +18,22 @@ let renderer, scene, camera, controls, observer, raf, pmrem, environment, namepl
 const groups = {}, textureCache = new Map(), textureRequests = new Map()
 const textureLoader = new THREE.TextureLoader()
 let disposed = false
-let hoverTimer, hoverTarget='', hoverSuppressedUntil=0, lastFitDistance=0
+let lastFitDistance=0
 
-function clearQueuedHover(){clearTimeout(hoverTimer);hoverTarget=''}
-function suspendHover(duration=1000){clearQueuedHover();hoverSuppressedUntil=Date.now()+duration}
-function queueHover(target){
-  if(!target||!props.hoverEnabled||dragging.value||Date.now()<hoverSuppressedUntil){clearQueuedHover();return}
-  if(hoverTarget===target)return
-  clearQueuedHover();hoverTarget=target
-  hoverTimer=setTimeout(()=>{
-    if(!disposed&&props.hoverEnabled&&!dragging.value&&Date.now()>=hoverSuppressedUntil)emit('edit',{target,trigger:'hover'})
-  },450)
-}
 function leaveAlbum(){
-  lastPointer=null;overHotspot=false;albumHovered.value=false;clearQueuedHover()
+  lastPointer=null;overHotspot=false;albumHovered.value=false
 }
-function hoverHotspot(event,hotspot){
+function hoverHotspot(event){
   if(event.pointerType!=='mouse'&&event.pointerType!=='pen')return
-  overHotspot=true;albumHovered.value=true;queueHover(hotspot.target)
+  overHotspot=true;albumHovered.value=true
 }
-function leaveHotspot(event){overHotspot=false;clearQueuedHover();handlePointerMove(event)}
+function leaveHotspot(event){overHotspot=false;handlePointerMove(event)}
 function checkAlbumHover(){
   if(overHotspot)return
-  if(!lastPointer||dragging.value||!camera||!renderer){albumHovered.value=false;clearQueuedHover();return}
+  if(!lastPointer||dragging.value||!camera||!renderer){albumHovered.value=false;return}
   const rect=renderer.domElement.getBoundingClientRect()
   const hit=intersectAlbum({point:lastPointer,rect,camera,group:groups[props.view],nameplate,raycaster:hitTester})
   albumHovered.value=!!hit
-  const name=hit?.object.material?.name||''
-  const target=hit?.object.userData.editTarget || (name.startsWith('PHOTO_')?'photo-'+name.slice(6):({COLOR_Cover:'cover',COLOR_Paper:'paper',COLOR_Frame:'frame',DETAIL_PageEdges:'paper',DETAIL_Hinge:'cover'}[name]||''))
-  queueHover(target)
 }
 function handlePointerMove(event){
   if(event.pointerType!=='mouse'&&event.pointerType!=='pen'){leaveAlbum();return}
@@ -200,11 +187,10 @@ function updateHotspots() {
   hotspots.value=next
 }
 function editPart(hotspot) {
-  clearQueuedHover();emit('edit',{...hotspot,trigger:'click'})
+  emit('edit',{...hotspot,trigger:'click'})
 }
 function focusHotspot(target) { host.value?.querySelector('[data-part="'+target+'"]')?.focus({preventScroll:true}) }
-defineExpose({ snapshot, resetView, zoom, focusHotspot, suspendHover })
-watch(()=>props.hoverEnabled,v=>{if(!v)clearQueuedHover()})
+defineExpose({ snapshot, resetView, zoom, focusHotspot })
 watch(() => props.design,applyDesign,{deep:true})
 watch(() => props.view,setView)
 watch(() => props.spinning,v => { if (controls) controls.autoRotate=v })
@@ -223,9 +209,8 @@ onMounted(async () => {
     controls.enablePan=false; controls.minDistance=3.2; controls.maxDistance=30
     controls.maxPolarAngle=Math.PI*.49; controls.minPolarAngle=.12; controls.autoRotateSpeed=.7
     controls.addEventListener('change',()=>{ anchorsDirty=true })
-    controls.addEventListener('start',()=>{ dragging.value=true;albumHovered.value=false;clearQueuedHover() })
+    controls.addEventListener('start',()=>{ dragging.value=true;albumHovered.value=false })
     controls.addEventListener('end',()=>{ dragging.value=false; anchorsDirty=true })
-    renderer.domElement.addEventListener('pointerdown',clearQueuedHover)
     pmrem=new THREE.PMREMGenerator(renderer)
     const room=new RoomEnvironment(); environment=pmrem.fromScene(room,.04); room.dispose()
     scene.environment=environment.texture; scene.environmentIntensity=.65
@@ -279,8 +264,7 @@ onMounted(async () => {
   } catch (e) { console.error(e); emit('error','3Dを表示できませんでした。WebGLに対応したブラウザーでお試しください。') }
 })
 onBeforeUnmount(() => {
-  disposed=true; clearQueuedHover();cancelAnimationFrame(raf); observer?.disconnect(); controls?.dispose()
-  renderer?.domElement.removeEventListener('pointerdown',clearQueuedHover)
+  disposed=true; cancelAnimationFrame(raf); observer?.disconnect(); controls?.dispose()
   scene?.traverse(o => { if (o.isMesh) { o.geometry.dispose(); o.material?.dispose() } })
   textureCache.forEach(t=>t.dispose()); environment?.dispose(); pmrem?.dispose(); renderer?.dispose()
 })
@@ -288,7 +272,7 @@ onBeforeUnmount(() => {
 <template>
  <div ref="host" class="three-stage" :class="{'has-editor':activeTarget,'is-dragging':dragging,'is-album-hovered':albumHovered}" @pointermove="handlePointerMove" @pointerleave="leaveAlbum">
   <div class="model-hotspots" :aria-hidden="!albumHovered || dragging" aria-label="3Dモデルの変更箇所">
-   <button v-for="hotspot in hotspots" :key="hotspot.target" class="model-hotspot" :tabindex="albumHovered && !dragging ? 0 : -1" :class="{active:activeTarget===hotspot.target}" :data-part="hotspot.target" :style="{left:hotspot.x+'px',top:hotspot.y+'px'}" :aria-label="hotspot.label" :aria-expanded="activeTarget===hotspot.target" aria-haspopup="dialog" @pointerenter="hoverHotspot($event,hotspot)" @pointerleave="leaveHotspot($event)" @pointerdown.stop @click.stop="editPart(hotspot)">
+   <button v-for="hotspot in hotspots" :key="hotspot.target" class="model-hotspot" :tabindex="albumHovered && !dragging ? 0 : -1" :class="{active:activeTarget===hotspot.target}" :data-part="hotspot.target" :style="{left:hotspot.x+'px',top:hotspot.y+'px'}" :aria-label="hotspot.label" :aria-expanded="activeTarget===hotspot.target" aria-haspopup="dialog" @pointerenter="hoverHotspot($event)" @pointerleave="leaveHotspot($event)" @pointerdown.stop @click.stop="editPart(hotspot)">
     <UiIcon :name="hotspot.icon" :size="17"/><span>{{hotspot.label}}</span>
    </button>
   </div>
